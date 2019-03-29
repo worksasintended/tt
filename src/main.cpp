@@ -1,9 +1,8 @@
-#include <array>
-#include <fstream>
 #include <iostream>
-#include <limits>
 #include <numeric>
 #include <vector>
+#include <limits>
+#include <fstream>
 
 using namespace std;
 constexpr bool checkConsistency = true;
@@ -132,9 +131,9 @@ vector<DataPoint*> readFile(ifstream& input) {
   while(input >> val) {
     // hit header
     if((val ^ 0x55) == 0) {
-      Angle* angle = new Angle();
-      RotationVelocity* rotationVelocity = new RotationVelocity();
-      Acceleration* acceleration = new Acceleration();
+      auto* angle = new Angle();
+      auto* rotationVelocity = new RotationVelocity();
+      auto* acceleration = new Acceleration();
       blockIdx = 0;
       data[blockIdx++] = val;
       // the demanded order  is 0x51, 0x52, 0x52
@@ -177,27 +176,22 @@ void write(vector<DataPoint*> data, ofstream& output) {
          << endl;
   // print only data with valid consistency check
   if(checkConsistency) {
-    for(auto date : data) {
-      output << date->t << "\t";
-      if(date->acceleration->consistent) {
-        output << date->acceleration->x << "\t" << date->acceleration->y << "\t" << date->acceleration->z << "\t";
-      } else {
-        writeNanPoint(output);
+      for (DataPoint* date : data) {
+          output << date->t << "\t";
+          vector<PhysicalAttribute*> physicalAttributes = {date->acceleration, date->angle, date->rotationVelocity};
+          for (PhysicalAttribute* physicalAttribute : physicalAttributes) {
+              if (physicalAttribute->consistent) {
+                  for (double i : {physicalAttribute->x, physicalAttribute->y, physicalAttribute->z}) {
+                      output << i << "\t";
+                  }
+              } else {
+                  writeNanPoint(output);
+              }
+
+          }
+          output << endl;
       }
-      if(date->angle->consistent) {
-        output << date->angle->x << "\t" << date->angle->y << "\t" << date->angle->z << "\t";
-      } else {
-        writeNanPoint(output);
-      }
-      if(date->rotationVelocity->consistent) {
-        output << date->rotationVelocity->x << "\t" << date->rotationVelocity->y << "\t" << date->rotationVelocity->z
-               << endl;
-      } else {
-        writeNanPoint(output);
-        output << endl;
-      }
-    }
-  } else {
+  }else {
     for(auto date : data) {
       output << date->t << "\t" << date->acceleration->x << "\t" << date->acceleration->y << "\t"
              << date->acceleration->z << "\t" << date->angle->x << "\t" << date->angle->y << "\t" << date->angle->z
@@ -254,7 +248,7 @@ int main(int argc, char** argv) {
   cout << "Data read" << endl;
 
   // filters
-  //filterSmallValues(data, 0.1, 0, 0);
+  filterSmallValues(data, 0.1, 0, 0);
 
   write(data, output);
   cout << "Results written to output file" << endl;
