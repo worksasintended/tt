@@ -6,7 +6,7 @@
 #include <vector>
 
 using namespace std;
-constexpr bool check_consistency = true;
+constexpr bool checkConsistency = false;
 constexpr int blockSize = 11;
 constexpr double nan = numeric_limits<double>::quiet_NaN();
 // value stored in two bytes, low and hight part
@@ -20,15 +20,15 @@ struct Angle {
   double y;
   double z;
   double temp;
-  bool check; // check some correct?
+  bool consistent; // check sum correct?
 
   void decode(char data[]) {
     x = bytesToVal(data[2], data[3]) / 32760.0 * 180;
     y = bytesToVal(data[4], data[5]) / 32760.0 * 180;
     z = bytesToVal(data[6], data[7]) / 32760.0 * 180;
     temp = bytesToVal(data[8], data[9]) / 340. + 36.53;
-    (accumulate(data, data + 9, (char)0) == data[10]) ? check = true
-                                                      : check = false;
+    (accumulate(data, data + 10, (char)0) == data[10]) ? consistent = true
+                                                       : consistent = false;
   }
 
   ~Angle() {}
@@ -39,15 +39,15 @@ struct RotationVelocity {
   double y;
   double z;
   double temp;
-  bool check; // check some correct?
+  bool consistent;
 
   void decode(char data[]) {
     x = bytesToVal(data[2], data[3]) / 32760.0 * 2000;
     y = bytesToVal(data[4], data[5]) / 32760.0 * 2000;
     z = bytesToVal(data[6], data[7]) / 32760.0 * 2000;
     temp = bytesToVal(data[8], data[9]) / 340. + 36.53;
-    (accumulate(data, data + 9, (char)0) == data[10]) ? check = true
-                                                      : check = false;
+    (accumulate(data, data + 10, (char)0) == data[10]) ? consistent = true
+                                                       : consistent = false;
   }
 
   ~RotationVelocity() {}
@@ -58,15 +58,15 @@ struct Acceleration {
   double y;
   double z;
   double temp;
-  bool check; // check some correct?
+  bool consistent;
 
   void decode(char data[]) {
     x = bytesToVal(data[2], data[3]) / 32760.0 * 16;
     y = bytesToVal(data[4], data[5]) / 32760.0 * 16;
     z = bytesToVal(data[6], data[7]) / 32760.0 * 16;
     temp = bytesToVal(data[8], data[9]) / 340. + 36.53;
-    (accumulate(data, data + 9, (char)0) == data[10]) ? check = true
-                                                      : check = false;
+    (accumulate(data, data + 10, (char)0) == data[10]) ? consistent = true
+                                                       : consistent = false;
   }
 
   ~Acceleration() {}
@@ -119,17 +119,19 @@ vector<DataPoint *> readFile(ifstream &input) {
         }
         blockIdx = 0;
       } else { // not first element of datapoint(time)
+        // TODO if not acceleration restart while
         angle->x = nan;
         angle->y = nan;
         angle->z = nan;
         angle->temp = nan;
-        angle->check = false;
+        angle->consistent = false;
       }
       // read 0x52
       if (input >> val && (val ^ 0x55) == 0 &&
           ((input >> val) && val ^ 0x52) == 0) {
+        data[blockIdx++] = 0x55;
         data[blockIdx++] = val;
-        while (blockIdx < blockSize-1) {
+        while (blockIdx < blockSize) {
           if (input >> val) { // handle file end
             data[blockIdx++] = val;
           } else {
@@ -143,14 +145,15 @@ vector<DataPoint *> readFile(ifstream &input) {
         rotationVelocity->y = nan;
         rotationVelocity->z = nan;
         rotationVelocity->temp = nan;
-        rotationVelocity->check = false;
+        rotationVelocity->consistent = false;
       }
 
       // read 0x53
-      if (input >> val  && (val ^ 0x55) == 0 &&
-          ((input >> val)  && val ^ 0x53) == 0) {
+      if (input >> val && (val ^ 0x55) == 0 &&
+          ((input >> val) && val ^ 0x53) == 0) {
+        data[blockIdx++] = 0x55;
         data[blockIdx++] = val;
-        while (blockIdx < blockSize-1) {
+        while (blockIdx < blockSize) {
           if (input >> val) { // handle file end
             data[blockIdx++] = val;
           } else {
@@ -164,7 +167,7 @@ vector<DataPoint *> readFile(ifstream &input) {
         angle->y = nan;
         angle->z = nan;
         angle->temp = nan;
-        angle->check = nan;
+        angle->consistent = nan;
       }
 
       dataPoints.push_back(
@@ -172,6 +175,59 @@ vector<DataPoint *> readFile(ifstream &input) {
     }
   }
   return dataPoints;
+}
+
+void write(vector<DataPoint *> data, ofstream &output) {
+  output << "#t,xAcceleration,yAcceleration,zAcceleration,xAngle,yAngle,zAngle,"
+            "xAngleVelocity,yAngleVelocity,zAngleVelocity"
+         << endl;
+  // print only data with valid consistency check
+  if (checkConsistency) {
+    for (auto date : data) {
+      output << date->t << "\t";
+      if (date->acceleration->consistent) {
+        output << date->acceleration->x << "\t" << date->acceleration->y << "\t"
+               << date->acceleration->z << "\t";
+      } else {
+        output << "nan"
+               << "\t"
+               << "nan"
+               << "\t"
+               << "nan"
+               << "\t";
+      }
+      if (date->angle->consistent) {
+        output << date->angle->x << "\t" << date->angle->y << "\t"
+               << date->angle->z << "\t";
+      } else {
+        output << "nan"
+               << "\t"
+               << "nan"
+               << "\t"
+               << "nan"
+               << "\t";
+      }
+      if (date->rotationVelocity->consistent) {
+        output << date->rotationVelocity->x << "\t" << date->rotationVelocity->y
+               << "\t" << date->rotationVelocity->z << endl;
+      } else {
+        output << "nan"
+               << "\t"
+               << "nan"
+               << "\t"
+               << "nan" << endl;
+      }
+    }
+  } else {
+    for (auto date : data) {
+      output << date->t << "\t" << date->acceleration->x << "\t"
+             << date->acceleration->y << "\t" << date->acceleration->z << "\t"
+             << date->angle->x << "\t" << date->angle->y << "\t"
+             << date->angle->z << "\t" << date->rotationVelocity->x << "\t"
+             << date->rotationVelocity->y << "\t" << date->rotationVelocity->z
+             << endl;
+    }
+  }
 }
 
 int main(int argc, char **argv) {
@@ -192,11 +248,9 @@ int main(int argc, char **argv) {
     return 0;
   }
 
-  vector<DataPoint*> data = readFile(input);
-  
-  output << "#t,xAcceleration,yAcceleration,zAcceleration,xAngle,yAngle,zAngle,xAngleVelocity,yAngleVelocity,zAngleVelocity" << endl;
-  for( auto date:data){
-    output << date->t << "\t" << date->acceleration->x << "\t" << date->acceleration->y << "\t" << date->acceleration->z << "\t" << date->angle->x << "\t" << date->angle->y << "\t" << date->angle->z << "\t" << date->rotationVelocity->x << "\t" <<date->rotationVelocity->y << "\t" << date->rotationVelocity->z << endl;
-  }
+  vector<DataPoint *> data = readFile(input);
+
+  write(data, output);
+
   return 0;
 }
