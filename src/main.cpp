@@ -22,10 +22,10 @@ public:
   bool consistent;  // check sum correct?
 
   PhysicalAttribute() {
-    createNanPoint();
+    setToNan();
   }
 
-  void createNanPoint() {
+  void setToNan() {
     x = y = z = temp = nan;
     consistent = false;
   }
@@ -140,7 +140,6 @@ vector<DataPoint*> readFile(ifstream& input) {
         data[blockIdx++] = 0x55;
         data[blockIdx++] = val;
         analyzePhysicalAttribute(rotationVelocity, data, blockIdx, input);
-        // if acceleration was a valid block
       }  // read 0x53
       if(input >> val && (val ^ 0x55) == 0 && (input >> val) && (val ^ 0x53) == 0) {
         data[blockIdx++] = 0x55;
