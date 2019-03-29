@@ -14,10 +14,10 @@ SET( CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -march=native" )
 
 SET( CMAKE_CXX_FLAGS_DEBUG "${CMAKE_CXX_FLAGS_DEBUG} -Wall -pedantic" )
 if ( ${USE_ADDRESS_SANITIZER} )
-  SET( CMAKE_CXX_FLAGS_DEBUG "${CMAKE_CXX_FLAGS_DEBUG} -fsanitize=address" )
+    SET( CMAKE_CXX_FLAGS_DEBUG "${CMAKE_CXX_FLAGS_DEBUG} -fsanitize=address" )
 endif()
 if ( ${USE_LIBRARY_ACCESS_CHECK} )
-  SET( CMAKE_CXX_FLAGS_DEBUG "${CMAKE_CXX_FLAGS_DEBUG} -D_GLIBCXX_DEBUG" )
+    SET( CMAKE_CXX_FLAGS_DEBUG "${CMAKE_CXX_FLAGS_DEBUG} -D_GLIBCXX_DEBUG" )
 endif()
 
 SET( CMAKE_CXX_FLAGS_RELEASE "${CMAKE_CXX_FLAGS_RELEASE}" )
@@ -32,8 +32,8 @@ SET( CMAKE_EXPORT_COMPILE_COMMANDS on )
 
 ADD_EXECUTABLE(bin_gyro-decoder main.cpp)
 if ( ${USE_BACKWARD} )
-  target_sources(bin_gyro-decoder PRIVATE ${BACKWARD_ENABLE})
-  add_backward(bin_gyro-decoder)
+    target_sources(bin_gyro-decoder PRIVATE ${BACKWARD_ENABLE})
+    add_backward(bin_gyro-decoder)
 endif()
 
 #TARGET_INCLUDE_DIRECTORIES( bin_gyro-decoder )
