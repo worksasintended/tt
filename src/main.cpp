@@ -43,14 +43,17 @@ public:
   }
 
   void filterSmallValues(double minValue) {
-    if(abs(x) < minValue) {
-      x = nan;
+
+    for( auto& i : {&x, &y, &z}){
+        if (*i< minValue){
+            *i = nan;
+        }
     }
-    if(abs(y) < minValue) {
-      y = nan;
-    }
-    if(abs(z) < minValue) {
-      z = nan;
+  }
+
+  void filterSmallValuesAbs(double minValue){
+    if(x*x+y*y+z*z < minValue){
+      x=y=z=nan;
     }
   }
 
@@ -94,7 +97,12 @@ public:
     delete rotationVelocity;
   }
 
-  void filterSmallValues(double minValueAcceleration, double minValueAngle, double minValueRotationVelocity) {
+ void filterSmallValuesAbs(double minValueAcceleration, double minValueAngle, double minValueRotationVelocity) {
+    acceleration->filterSmallValuesAbs(minValueAcceleration);
+    angle->filterSmallValuesAbs(minValueAngle);
+    rotationVelocity->filterSmallValuesAbs(minValueRotationVelocity);
+ }
+ void filterSmallValues(double minValueAcceleration, double minValueAngle, double minValueRotationVelocity) {
     acceleration->filterSmallValues(minValueAcceleration);
     angle->filterSmallValues(minValueAngle);
     rotationVelocity->filterSmallValues(minValueRotationVelocity);
@@ -199,6 +207,16 @@ void write(vector<DataPoint*> data, ofstream& output) {
   }
 }
 
+void filterSmallValuesAbs(vector<DataPoint*> data,
+                       double minValueAcceleration,
+                       double minValueAngle,
+                       double minValueRotationVelocity) {
+  for(auto date : data) {
+    date->filterSmallValuesAbs(minValueAcceleration, minValueAngle, minValueRotationVelocity);
+  }
+}
+
+
 void filterSmallValues(vector<DataPoint*> data,
                        double minValueAcceleration,
                        double minValueAngle,
@@ -236,7 +254,7 @@ int main(int argc, char** argv) {
   cout << "Data read" << endl;
 
   // filters
-  filterSmallValues(data, 0.1, 0, 0);
+  //filterSmallValues(data, 0.1, 0, 0);
 
   write(data, output);
   cout << "Results written to output file" << endl;
