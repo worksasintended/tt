@@ -9,6 +9,14 @@ constexpr bool checkConsistency = true;
 constexpr int blockSize = 11;
 constexpr double nan = numeric_limits<double>::quiet_NaN();
 
+
+enum attributeType {
+  angleType = 180, 
+  accelerationType = 16,
+  rotationVelocityType = 2000
+};
+
+
 // values stored in two bytes, low and hight part
 auto bytesToVal(char low, char high) {
   short val = low | (high << 8);
@@ -17,10 +25,11 @@ auto bytesToVal(char low, char high) {
 
 class PhysicalAttribute {
 public:
-  double x, y, z, temp, maxVal;
+  double x, y, z, temp, type;
   bool consistent;  // check sum correct?
 
-  PhysicalAttribute() {
+  PhysicalAttribute( attributeType theType ) {
+    type = theType;
     setToNan();
   }
 
@@ -34,9 +43,9 @@ public:
   }
 
   void decode(char data[]) {
-    x = bytesToVal(data[2], data[3]) / 32760.0 * maxVal;
-    y = bytesToVal(data[4], data[5]) / 32760.0 * maxVal;
-    z = bytesToVal(data[6], data[7]) / 32760.0 * maxVal;
+    x = bytesToVal(data[2], data[3]) / 32760.0 * type;
+    y = bytesToVal(data[4], data[5]) / 32760.0 * type;
+    z = bytesToVal(data[6], data[7]) / 32760.0 * type;
     temp = bytesToVal(data[8], data[9]) / 340. + 36.53;
     checkConsistency(data);
   }
@@ -59,35 +68,15 @@ public:
   virtual ~PhysicalAttribute() = default;
 };
 
-class Angle : public PhysicalAttribute {
-public:
-  Angle() : PhysicalAttribute() {
-    maxVal = 180.;
-  }
-};
-
-class RotationVelocity : public PhysicalAttribute {
-public:
-  RotationVelocity() : PhysicalAttribute() {
-    maxVal = 2000.;
-  }
-};
-
-class Acceleration : public PhysicalAttribute {
-public:
-  Acceleration() : PhysicalAttribute() {
-    maxVal = 16.;
-  }
-};
 
 class DataPoint {
 public:
   int t;
-  Acceleration* acceleration;
-  Angle* angle;
-  RotationVelocity* rotationVelocity;
+  PhysicalAttribute* acceleration;
+  PhysicalAttribute* angle;
+  PhysicalAttribute* rotationVelocity;
 
-  DataPoint(int t_, Angle* angle_, Acceleration* acceleration_, RotationVelocity* rotationVelocity_)
+  DataPoint(int t_, PhysicalAttribute* angle_, PhysicalAttribute* acceleration_, PhysicalAttribute* rotationVelocity_)
       : t(t_), acceleration(acceleration_), angle(angle_), rotationVelocity(rotationVelocity_) {
   }
   ~DataPoint() {
@@ -101,11 +90,12 @@ public:
     angle->filterSmallValuesAbs(minValueAngle);
     rotationVelocity->filterSmallValuesAbs(minValueRotationVelocity);
  }
+
  void filterSmallValues(double minValueAcceleration, double minValueAngle, double minValueRotationVelocity) {
     acceleration->filterSmallValues(minValueAcceleration);
     angle->filterSmallValues(minValueAngle);
     rotationVelocity->filterSmallValues(minValueRotationVelocity);
-  }
+ }
 };
 
 void analyzePhysicalAttribute(PhysicalAttribute* physicalAttribute, char* data, int& blockIdx, ifstream& input) {
@@ -131,9 +121,9 @@ vector<DataPoint*> readFile(ifstream& input) {
   while(input >> val) {
     // hit header
     if((val ^ 0x55) == 0) {
-      auto* angle = new Angle();
-      auto* rotationVelocity = new RotationVelocity();
-      auto* acceleration = new Acceleration();
+      auto* angle = new PhysicalAttribute(angleType);
+      auto* rotationVelocity = new PhysicalAttribute(rotationVelocityType);
+      auto* acceleration = new PhysicalAttribute(accelerationType);
       blockIdx = 0;
       data[blockIdx++] = val;
       // the demanded order  is 0x51, 0x52, 0x52
@@ -172,14 +162,13 @@ void writeNanPoint(ofstream& output) {
 
 void write(vector<DataPoint*> data, ofstream& output) {
   output << "#t,xAcceleration,yAcceleration,zAcceleration,xAngle,yAngle,zAngle,"
-            "xAngleVelocity,yAngleVelocity,zAngleVelocity"
+            "xAngulearVelocity,yAngularVelocity,zAngularVelocity"
          << endl;
   // print only data with valid consistency check
   if(checkConsistency) {
       for (DataPoint* date : data) {
-          output << date->t << "\t";
-          vector<PhysicalAttribute*> physicalAttributes = {date->acceleration, date->angle, date->rotationVelocity};
-          for (PhysicalAttribute* physicalAttribute : physicalAttributes) {
+          output << date->t << "\t"; 
+          for (PhysicalAttribute* physicalAttribute : {date->acceleration, date->angle, date->rotationVelocity}) {
               if (physicalAttribute->consistent) {
                   for (double i : {physicalAttribute->x, physicalAttribute->y, physicalAttribute->z}) {
                       output << i << "\t";
@@ -248,7 +237,7 @@ int main(int argc, char** argv) {
   cout << "Data read" << endl;
 
   // filters
-  filterSmallValues(data, 0.1, 0, 0);
+  //filterSmallValues(data, 0.1, 0, 0);
 
   write(data, output);
   cout << "Results written to output file" << endl;
